@@ -1,0 +1,9 @@
+# Ignore local log files
+monitor.log
+
+# Ignore auto-generated URL files (optional)
+urls.txt
+
+# Ignore Python cache directories
+__pycache__/
+*.pyc
