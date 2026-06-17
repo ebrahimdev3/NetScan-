@@ -1,87 +1,55 @@
-# 🌐 NetScan
-> **Advanced Async URL Monitor & Security Checker**
+# ⚡ NetScan Pro - Concurrent URL Security & Status Scanner
 
-An enterprise-grade, high-performance command-line interface (CLI) tool written in Python. It continuously monitors a list of web servers for availability, measures connection latency, sends automated email alerts upon server failure, and performs live security scans against known malicious domains using the VirusTotal API.
-
-Built entirely on **Asynchronous I/O**, this tool can inspect hundreds of links concurrently in just a fraction of a second.
+An ultra-fast, lightweight, and modern web platform built with **FastAPI** (Python 3.13 optimized) and **Tailwind CSS** to scan and monitor multiple URLs simultaneously using asynchronous concurrency.
 
 ---
 
-## 🚀 Key Features
+## 🚀 One-Click Installation & Launch (Quick Start)
 
-- **Blazing Fast Concurrency:** Utilizes asyncio and aiohttp to check hundreds of websites concurrently rather than sequentially.
-- **Dynamic Threading for Blocking I/O:** Runs user inputs and SMTP mailing processes within thread executors (run_in_executor) to prevent blocking the async event loop.
-- **Security Analysis (VirusTotal Integration):** Encodes target URLs into Base64 identifiers to securely query the VirusTotal v3 API and instantly pull security engine threat stats.
-- **Automated SMTP Email Alerts:** Sends immediate SSL-encrypted email alerts to the administrator if a web server returns a failure code (4xx/5xx) or drops completely offline.
-- **Production-Ready Security:** Implements os.environ to avoid hardcoding sensitive API keys, email credentials, or passwords into the source code.
-- **Persistent Logging System:** Automatically formats and tracks all HTTP status reports, latency rates, and security data inside a local chronological monitor.log file.
+Copy and paste this single command into your **Termux** terminal to install all dependencies, configure the project, and launch both the **Backend API** and **Frontend Web Server** at once:
 
----
+```bash
+cd ~ && pip install -r ~/NetScan/Web_Version/requirements.txt && (uvicorn NetScan.Web_Version.backend.main:app --host 0.0.0.0 --port 8000 --reload &) && cd ~/NetScan/Web_Version/frontend/ && python -m http.server 8080
 
-## 🛠️ Tech Stack & Requirements
+​🌐 Accessing the Web Dashboard: Once executed, open your mobile or desktop browser and navigate to: http://localhost:8080
+​✨ System Features
+​🚀 Asynchronous Concurrency: Scans hundreds of URLs simultaneously in milliseconds via asyncio and aiohttp.
+​🎨 Premium UI: Sleek, dynamic Dark Mode dashboard crafted with pure Tailwind CSS.
+​🛡️ Security Check: Integrates with VirusTotal API to detect suspicious or malicious domains.
+​🌐 Public & Local Ready: No heavy database required, works flawlessly completely offline or online.
+​🐍 Python 3.13 Optimized: Includes custom patches for modern Python environments on Android/Termux.
+​🛠️ Manual Step-by-Step Installation
+​If you prefer to run and debug the components individually in separate terminal sessions:
+​1. Install Dependencies
+pip install -r requirements.txt
 
-- **Runtime Environment:** Python 3.8+
-- **Core Async Library:** aiohttp (Asynchronous HTTP Client/Server)
-- **Built-in Modules Used:** asyncio, os, time, logging, smtplib, base64, email
+2. Start Backend Service (FastAPI)
+uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 
-To install the necessary asynchronous library, run:
-pip install aiohttp
+3. Start Frontend Server (HTML/CSS)
+cd frontend
+python -m http.server 8080
 
-## 📂 Project Directory Structure
+📊 API Endpoint Documentation
+​POST /api/scan
+​Evaluates an array of target domains.
+​Request Body (application/json):
+  {
+  "urls": ["google.com", "github.com"]
+}
 
-├── monitor.py       # Single-file production codebase containing UI and async engines
-├── urls.txt         # Text file container holding URLs to scan (one per line, auto-generated if missing)
-└── monitor.log      # Persistent logging repository recording automated session data
+Response Body (application/json):
+  {
+  "results": [
+    {
+      "url": "google.com",
+      "status": "200",
+      "time": "45ms",
+      "security": "✅ CLEAN",
+      "alive": true
+    }
+  ]
+}
 
-## 🚀 Getting Started & Configuration
-To protect your sensitive credentials from being exposed, this script reads keys directly from environment variables. Set them up before running the tool.
-
-### 1. Configuration (Set Environment Variables)
-
-* On Linux / macOS / Git Bash:
-export VIRUSTOTAL_API_KEY="your_actual_virustotal_api_key"
-export ALERT_EMAIL_SENDER="your_alert_sender_email@gmail.com"
-export ALERT_EMAIL_PASSWORD="your_16_digit_gmail_app_password"
-export ALERT_EMAIL_RECEIVER="admin_receiver@domain.com"
-
-* On Windows Command Prompt (CMD):
-set VIRUSTOTAL_API_KEY=your_actual_virustotal_api_key
-set ALERT_EMAIL_SENDER=your_alert_sender_email@gmail.com
-set ALERT_EMAIL_PASSWORD=your_16_digit_gmail_app_password
-set ALERT_EMAIL_RECEIVER=admin_receiver@domain.com
-
-### 2. Execution
-Run the script directly via your terminal:
-python monitor.py
-  
-## 🖥️ How It Looks (Sample Output)
-When running option 2 with multiple targets inside urls.txt:
-
-=================================================================
-🌐  Advanced URL Monitor & Security Checker (Async)  🌐
-=================================================================
-1. Check Single URL
-2. Fast Async File Check (urls.txt)
-3. Exit
-=================================================================
-Enter your choice (1-3): 2
-
-🚀 Scanning 4 URLs concurrently...
-[+] URL: https://google.com | Status: 200 | Time: 45ms | Security: ✅ CLEAN
-[+] URL: https://github.com | Status: 200 | Time: 120ms | Security: ✅ CLEAN
-[-] URL: https://httpstat.us/500 | Status: 500 | Time: 210ms | Security: ✅ CLEAN
-[-] URL: https://malicious-test-site.cc | Status: DOWN/FAILED | Security: ⚠️ SUSPICIOUS (4 engines flagged)
-
-✨ Async scan finished in 0.32 seconds!
-📝 Logs have been saved to 'monitor.log'
-
-
-### 📄 Logging Output Example
-Your monitor.log file will accurately structure entries as follows:
-
-2026-06-16 10:12:14 - INFO - URL: https://google.com | Status: 200 | Time: 45ms | Security: ✅ CLEAN
-2026-06-16 10:12:14 - ERROR - URL: https://malicious-test-site.cc | Status: DOWN/FAILED | Security: ⚠️ SUSPICIOUS (4 engines flagged)
-2026-06-16 10:12:15 - INFO - Email alert sent successfully for: https://malicious-test-site.cc
-
-## 🔒 License
-This project is open-source and available under the MIT License.
+or if you don't like the terminal stuf then you can try the website
+Developed with ❤️ for standalone and public network monitoring.
