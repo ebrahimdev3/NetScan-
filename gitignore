@@ -1,9 +1,8 @@
-# Ignore local log files
+# تجاهل ملفات السجلات الحية أينما وجدت
+*.log
 monitor.log
 
-# Ignore auto-generated URL files (optional)
-urls.txt
-
-# Ignore Python cache directories
+# تجاهل مجلدات الكاش الخاصة ببايثون
 __pycache__/
+*/__pycache__/
 *.pyc

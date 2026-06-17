@@ -1,0 +1,40 @@
+2026-06-16 12:26:12 - ERROR - URL: https://google.com | Status: DOWN/FAILED | Security: Not Checked (No API Key)
+2026-06-16 12:26:12 - ERROR - URL: https://httpstat.us/500 | Status: DOWN/FAILED | Security: Not Checked (No API Key)
+2026-06-16 12:26:12 - ERROR - URL: https://github.com | Status: DOWN/FAILED | Security: Not Checked (No API Key)
+2026-06-16 12:26:12 - ERROR - Failed to send email alert: [Errno 7] No address associated with hostname
+2026-06-16 12:26:12 - ERROR - Failed to send email alert: [Errno 7] No address associated with hostname
+2026-06-16 12:26:12 - ERROR - Failed to send email alert: [Errno 7] No address associated with hostname
+2026-06-16 12:26:22 - ERROR - URL: https://github.com | Status: DOWN/FAILED | Security: Not Checked (No API Key)
+2026-06-16 12:26:22 - ERROR - URL: https://google.com | Status: DOWN/FAILED | Security: Not Checked (No API Key)
+2026-06-16 12:26:22 - ERROR - Failed to send email alert: [Errno 7] No address associated with hostname
+2026-06-16 12:26:22 - ERROR - Failed to send email alert: [Errno 7] No address associated with hostname
+2026-06-16 12:26:22 - ERROR - URL: https://httpstat.us/500 | Status: DOWN/FAILED | Security: Not Checked (No API Key)
+2026-06-16 12:26:22 - ERROR - Failed to send email alert: [Errno 7] No address associated with hostname
+2026-06-17 10:11:47 - ERROR - URL: https://google.com | Status: DOWN/FAILED | Security: Error connecting to VirusTotal
+2026-06-17 10:11:47 - ERROR - URL: https://httpstat.us/500 | Status: DOWN/FAILED | Security: Error connecting to VirusTotal
+2026-06-17 10:11:47 - ERROR - URL: https://github.com | Status: DOWN/FAILED | Security: Error connecting to VirusTotal
+2026-06-17 10:11:47 - ERROR - Failed to send email alert: [Errno 7] No address associated with hostname
+2026-06-17 10:11:47 - ERROR - Failed to send email alert: [Errno 7] No address associated with hostname
+2026-06-17 10:11:47 - ERROR - Failed to send email alert: [Errno 7] No address associated with hostname
+2026-06-17 10:11:59 - ERROR - URL: https://github.com | Status: DOWN/FAILED | Security: Error connecting to VirusTotal
+2026-06-17 10:11:59 - ERROR - URL: https://httpstat.us/500 | Status: DOWN/FAILED | Security: Error connecting to VirusTotal
+2026-06-17 10:11:59 - ERROR - URL: https://google.com | Status: DOWN/FAILED | Security: Error connecting to VirusTotal
+2026-06-17 10:11:59 - ERROR - Failed to send email alert: [Errno 7] No address associated with hostname
+2026-06-17 10:11:59 - ERROR - Failed to send email alert: [Errno 7] No address associated with hostname
+2026-06-17 10:11:59 - ERROR - Failed to send email alert: [Errno 7] No address associated with hostname
+2026-06-17 10:12:11 - ERROR - URL: https://httpstat.us/500 | Status: DOWN/FAILED | Security: Error connecting to VirusTotal
+2026-06-17 10:12:11 - ERROR - URL: https://google.com | Status: DOWN/FAILED | Security: Error connecting to VirusTotal
+2026-06-17 10:12:11 - ERROR - Failed to send email alert: [Errno 7] No address associated with hostname
+2026-06-17 10:12:11 - ERROR - URL: https://github.com | Status: DOWN/FAILED | Security: Error connecting to VirusTotal
+2026-06-17 10:12:11 - ERROR - Failed to send email alert: [Errno 7] No address associated with hostname
+2026-06-17 10:12:11 - ERROR - Failed to send email alert: [Errno 7] No address associated with hostname
+2026-06-17 10:12:16 - ERROR - URL: https://github.com | Status: DOWN/FAILED | Security: Error connecting to VirusTotal
+2026-06-17 10:12:16 - ERROR - URL: https://httpstat.us/500 | Status: DOWN/FAILED | Security: Error connecting to VirusTotal
+2026-06-17 10:12:16 - ERROR - URL: https://google.com | Status: DOWN/FAILED | Security: Error connecting to VirusTotal
+2026-06-17 10:12:16 - ERROR - Failed to send email alert: [Errno 7] No address associated with hostname
+2026-06-17 10:12:16 - ERROR - Failed to send email alert: [Errno 7] No address associated with hostname
+2026-06-17 10:12:16 - ERROR - Failed to send email alert: [Errno 7] No address associated with hostname
+2026-06-17 10:12:51 - INFO - URL: https://github.com | Status: 200 | Time: 628ms | Security: ✅ CLEAN
+2026-06-17 10:12:51 - ERROR - URL: https://httpstat.us/500 | Status: DOWN/FAILED | Security: ✅ CLEAN
+2026-06-17 10:12:51 - INFO - URL: https://google.com | Status: 200 | Time: 2214ms | Security: ✅ CLEAN
+2026-06-17 10:12:52 - ERROR - Failed to send email alert: 'ascii' codec can't encode character '\u0627' in position 1: ordinal not in range(128)

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NetScan - Concurrent URL Scanner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        /* Smooth Animated Gradient Background */
+        .gradient-bg {
+            background: linear-gradient(-45deg, #0f172a, #1e1b4b, #111827, #0f172a);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+        }
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+    </style>
+</head>
+<body class="gradient-bg text-slate-100 min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+
+    <header class="border-b border-slate-800/60 backdrop-blur-md sticky top-0 z-50 bg-slate-900/50">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-indigo-600 p-2.5 rounded-xl shadow-lg shadow-indigo-500/30">
+                    <i class="fa-solid fa-shield-halved text-xl text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">NetScan Pro</h1>
+                    <p class="text-xs text-indigo-400 font-medium">Concurrent Multi-URL Scanner</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 text-xs bg-slate-800/50 px-3 py-1.5 rounded-full border border-slate-700/50 text-slate-400">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                Server Connected
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-8 flex-grow w-full grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <div class="lg:col-span-1 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 backdrop-blur-xl flex flex-col gap-4 h-fit">
+            <div class="flex items-center gap-2 mb-2">
+                <i class="fa-solid fa-list-check text-indigo-400 text-lg"></i>
+                <h2 class="text-lg font-bold text-white">Target URLs</h2>
+            </div>
+            <p class="text-xs text-slate-400 leading-relaxed">
+                Enter the URLs you want to scan simultaneously. Place each URL on a separate line.
+            </p>
+            <textarea id="urlInput" rows="8" 
+                class="w-full bg-slate-950/60 border border-slate-800 focus:border-indigo-500/80 focus:ring-2 focus:ring-indigo-500/20 rounded-xl p-4 text-sm text-slate-200 outline-none transition placeholder-slate-700 font-mono resize-none"
+                placeholder="google.com&#10;github.com&#10;mysite.xyz"></textarea>
+            
+            <button onclick="startConcurrentScan()" id="btnScan"
+                class="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold py-3.5 px-4 rounded-xl shadow-lg shadow-indigo-600/20 active:scale-[0.98] transition flex items-center justify-center gap-2 group">
+                <i class="fa-solid fa-bolt transition group-hover:scale-110"></i>
+                <span>Launch Concurrent Scan</span>
+            </button>
+        </div>
+
+        <div class="lg:col-span-2 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 backdrop-blur-xl flex flex-col min-h-[400px]">
+            <div class="flex justify-between items-center mb-6">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-square-poll-horizontal text-indigo-400 text-lg"></i>
+                    <h2 class="text-lg font-bold text-white">Live Dashboard</h2>
+                </div>
+                <div id="scanCounter" class="text-xs text-slate-400 bg-slate-800/30 px-3 py-1 rounded-md hidden"></div>
+            </div>
+
+            <div class="overflow-x-auto rounded-xl border border-slate-800/60 bg-slate-950/20 flex-grow">
+                <table class="w-full text-sm text-left text-slate-300">
+                    <thead class="text-xs uppercase bg-slate-900/80 text-slate-400 border-b border-slate-800">
+                        <tr>
+                            <th class="px-4 py-3.5">Target URL</th>
+                            <th class="px-4 py-3.5 text-center">Status</th>
+                            <th class="px-4 py-3.5 text-center">Response Time</th>
+                            <th class="px-4 py-3.5 text-center">Security (VirusTotal)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsTableBody">
+                        <tr id="emptyRow">
+                            <td colspan="4" class="px-4 py-16 text-center text-slate-500">
+                                <div class="flex flex-col items-center gap-3">
+                                    <i class="fa-solid fa-radar text-3xl opacity-40 animate-pulse"></i>
+                                    <span>No data available. Input URLs and click scan to begin.</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <footer class="border-t border-slate-900 py-4 text-center text-xs text-slate-600">
+        &copy; 2026 NetScan Platform • All Rights Reserved.
+    </footer>
+
+    <script>
+        async function startConcurrentScan() {
+            const input = document.getElementById('urlInput').value.trim();
+            const tableBody = document.getElementById('resultsTableBody');
+            const btnScan = document.getElementById('btnScan');
+            const counter = document.getElementById('scanCounter');
+
+            if (!input) {
+                alert('Please enter at least one URL before scanning.');
+                return;
+            }
+
+            const urls = input.split('\n').map(u => u.trim()).filter(u => u.length > 0);
+
+            btnScan.disabled = true;
+            btnScan.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin"></i> <span>Scanning targets...</span>`;
+            
+            tableBody.innerHTML = '';
+            counter.classList.remove('hidden');
+            counter.innerText = `Scanning ${urls.length} targets...`;
+
+            try {
+                const response = await fetch('http://localhost:8000/api/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ urls: urls })
+                });
+
+                if (!response.ok) throw new Error('Server responded with an error');
+
+                const data = await response.json();
+                
+                data.results.forEach(res => {
+                    const tr = document.createElement('tr');
+                    tr.className = "border-b border-slate-900 hover:bg-slate-900/30 transition duration-150";
+
+                    const isAlive = res.alive;
+                    const statusBadge = isAlive 
+                        ? `<span class="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-md text-xs font-semibold"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>${res.status} ONLINE</span>`
+                        : `<span class="inline-flex items-center gap-1 bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2.5 py-1 rounded-md text-xs font-semibold"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>${res.status}</span>`;
+
+                    let securityBadgeClass = "text-slate-400 bg-slate-800/40";
+                    if(res.security.includes('CLEAN')) securityBadgeClass = "text-teal-400 bg-teal-500/10 border border-teal-500/20";
+                    if(res.security.includes('SUSPICIOUS')) securityBadgeClass = "text-amber-400 bg-amber-500/10 border border-amber-500/20";
+                    
+                    tr.innerHTML = `
+                        <td class="px-4 py-4 font-medium text-slate-200 tracking-wide max-w-xs truncate font-mono text-xs">${res.url}</td>
+                        <td class="px-4 py-4 text-center">${statusBadge}</td>
+                        <td class="px-4 py-4 text-center text-slate-400 font-mono text-xs">${res.time}</td>
+                        <td class="px-4 py-4 text-center">
+                            <span class="px-2.5 py-1 rounded-md text-xs font-semibold ${securityBadgeClass}">
+                                ${res.security}
+                            </span>
+                        </td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
+
+                counter.innerText = `Scan completed for ${urls.length} targets.`;
+                counter.className = "text-xs text-emerald-400 bg-emerald-950/30 px-3 py-1 rounded-md border border-emerald-500/20";
+
+            } catch (error) {
+                console.error(error);
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="px-4 py-12 text-center text-rose-400 font-medium">
+                            <i class="fa-solid fa-triangle-exclamation text-xl mb-2 block"></i>
+                            Failed to connect to backend API. Ensure Uvicorn is running in Termux!
+                        </td>
+                    </tr>
+                `;
+                counter.classList.add('hidden');
+            } finally {
+                btnScan.disabled = false;
+                btnScan.innerHTML = `<i class="fa-solid fa-bolt"></i> <span>Launch Concurrent Scan</span>`;
+            }
+        }
+    </script>
+</body>
+</html>
