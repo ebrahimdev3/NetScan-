@@ -9,7 +9,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 
-# إدارة جلسة الاتصال بكفاءة عالية للموقع العام
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     timeout = aiohttp.ClientTimeout(total=10)
@@ -19,11 +18,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Public NetScan API", lifespan=lifespan)
 
-# السماح لجميع المستخدمين من أي مكان بالاتصال بالسيرفر
+# ✅ إصلاح الـ CORS: عند استخدام "*" يجب أن تكون credentials مساوية لـ False
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -68,8 +67,6 @@ async def scan_single_url(session, url):
             response_time = round((time.time() - start_time) * 1000)
             status_code = response.status
             security = await check_virustotal(session, url)
-            
-            # تم حذف دالة إرسال الإيميل من هنا تماماً لراحة بالك
             return {"url": display_url, "status": str(status_code), "time": f"{response_time}ms", "security": security, "alive": True}
     except Exception:
         security = await check_virustotal(session, url)
