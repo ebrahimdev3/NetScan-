@@ -11,7 +11,7 @@ async function runScan() {
 
     const urls = urlInput.split('\n').map(u => u.trim()).filter(u => u.length > 0);
 
-    // تأمين تفعيل حالة الزر
+    // تأمين تفعيل حالة تحميل الزر
     if (scanBtn) {
         scanBtn.disabled = true;
         scanBtn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin"></i> <span>Scanning targets...</span>`;
@@ -19,9 +19,10 @@ async function runScan() {
     
     if (tableBody) tableBody.innerHTML = '';
     
-    // تأمين تحديث العداد في حال عدم وجود المعرّف بالـ HTML
+    // إظهار وإعداد العداد
     if (counter) {
         counter.classList.remove('hidden');
+        counter.className = "text-xs text-indigo-400 bg-indigo-950/30 px-3 py-1 rounded-md border border-indigo-500/20";
         counter.innerText = `Scanning ${urls.length} targets...`;
     }
 
@@ -37,6 +38,7 @@ async function runScan() {
         const data = await response.json();
 
         if (tableBody) {
+            tableBody.innerHTML = ''; // تنظيف شاشة الانتظار
             data.results.forEach(res => {
                 const row = document.createElement('tr');
                 row.className = "border-b border-slate-900 hover:bg-slate-900/30 transition duration-150";
@@ -89,7 +91,7 @@ async function runScan() {
         if (tableBody) {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="4" class="px-4 py-12 text-center text-rose-400 font-medium">
+                    <td colspan="4" class="px-4 py-12 text-center text-rose-400 font-medium text-sm">
                         <i class="fa-solid fa-circle-exclamation text-xl mb-2 block animate-bounce"></i>
                         API connection wake-up in progress. If this is the first scan, the free cloud tier takes up to 50 seconds to spin up. Please try again in a moment!
                     </td>

@@ -18,7 +18,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Public NetScan API", lifespan=lifespan)
 
-# ✅ إصلاح الـ CORS: عند استخدام "*" يجب أن تكون credentials مساوية لـ False
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  

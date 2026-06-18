@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NetScan - Concurrent URL Scanner</title>
+    <title>NetScan Pro - Concurrent URL Scanner</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
-        /* Smooth Animated Gradient Background */
         .gradient-bg {
             background: linear-gradient(-45deg, #0f172a, #1e1b4b, #111827, #0f172a);
             background-size: 400% 400%;
@@ -56,7 +55,7 @@
                 class="w-full bg-slate-950/60 border border-slate-800 focus:border-indigo-500/80 focus:ring-2 focus:ring-indigo-500/20 rounded-xl p-4 text-sm text-slate-200 outline-none transition placeholder-slate-700 font-mono resize-none"
                 placeholder="google.com&#10;github.com&#10;mysite.xyz"></textarea>
             
-            <button onclick="startConcurrentScan()" id="btnScan"
+            <button onclick="runScan()" id="btnScan"
                 class="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold py-3.5 px-4 rounded-xl shadow-lg shadow-indigo-600/20 active:scale-[0.98] transition flex items-center justify-center gap-2 group">
                 <i class="fa-solid fa-bolt transition group-hover:scale-110"></i>
                 <span>Launch Concurrent Scan</span>
@@ -69,4 +68,36 @@
                     <i class="fa-solid fa-square-poll-horizontal text-indigo-400 text-lg"></i>
                     <h2 class="text-lg font-bold text-white">Live Dashboard</h2>
                 </div>
-                <div id="scanCounter" class="text-xs text-slate
+                <div id="scanCounter" class="text-xs text-slate-400 hidden"></div>
+            </div>
+
+            <div class="overflow-x-auto border border-slate-800/60 rounded-xl bg-slate-950/20">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-800 bg-slate-900/30 text-xs font-semibold text-slate-400 tracking-wider">
+                            <th class="px-4 py-3.5">Target URL</th>
+                            <th class="px-4 py-3.5 text-center">HTTP Status</th>
+                            <th class="px-4 py-3.5 text-center">Latency</th>
+                            <th class="px-4 py-3.5 text-center">Security (VirusTotal)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsTableBody" class="divide-y divide-slate-800/40">
+                        <tr>
+                            <td colspan="4" class="px-4 py-16 text-center text-slate-500 text-sm">
+                                <i class="fa-solid fa-satellite-dish text-2xl mb-2 block text-slate-600"></i>
+                                No active scans running. Enter targets and launch deployment.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <footer class="border-t border-slate-900 text-center py-4 text-xs text-slate-600 bg-slate-950/40">
+        &copy; 2026 NetScan Pro System. Secure Async Architecture.
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
