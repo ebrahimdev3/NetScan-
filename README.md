@@ -8,7 +8,7 @@ An ultra-fast, lightweight, and modern web platform built with **FastAPI** (Pyth
 
 Copy and paste this single command into your **Termux** terminal to install all dependencies, configure the project, and launch both the **Backend API** and **Frontend Web Server** at once:
 
-cd ~ && pip install -r ~/NetScan/requirements.txt && (uvicorn NetScan.Web_Version.backend.main:app --host 0.0.0.0 --port 8000 --reload &) && cd ~/NetScan/Web_Version/frontend/ && python -m http.server 8080
+cd ~ && pip install -r ~/NetScan/Web_Version/requirements.txt && (uvicorn NetScan.Web_Version.backend.main:app --host 0.0.0.0 --port 8000 --reload &) && cd ~/NetScan/Web_Version/frontend/ && python -m http.server 8080
 
 
 ​🌐 Accessing the Web Dashboard: Once executed, open your mobile or desktop browser and navigate to: http://localhost:8080
