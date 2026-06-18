@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+aiohttp
+gunicorn
+gunicorn
+gunicorn
+gunicorn
