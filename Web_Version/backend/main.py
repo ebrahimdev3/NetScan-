@@ -1,16 +1,25 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List
 import asyncio
 import aiohttp
 import ssl
 import socket
+import json
 from datetime import datetime
 
-app = FastAPI()
+# استيراد أدوات تحديد معدل الطلبات (Rate Limiting)
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
-# تفعيل الـ CORS لتسمح للواجهة بالاتصال بالـ API
+limiter = Limiter(key_func=get_remote_address)
+app = FastAPI()
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,81 +32,68 @@ class ScanRequest(BaseModel):
     urls: List[str]
 
 def get_ssl_expiry_days(hostname: str) -> int:
-    """جلب عدد الأيام المتبقية لانتهاء شهادة SSL"""
     try:
         context = ssl.create_default_context()
-        with socket.create_connection((hostname, 443), timeout=3) as sock:
+        with socket.create_connection((hostname, 443), timeout=2) as sock:
             with context.wrap_socket(sock, server_hostname=hostname) as ssock:
                 cert = ssock.getpeercert()
-                # تحويل تاريخ الانتهاء إلى كائن datetime
                 expire_date = datetime.strptime(cert['notAfter'], "%b %d %H:%M:%S %Y %Z")
                 remaining = expire_date - datetime.utcnow()
                 return remaining.days
     except Exception:
-        return -1  # تعني فشل جلب الشهادة أو لا توجد شهادة
+        return -1
 
-async def scan_single_url(session: aiohttp.ClientSession, url: str) -> dict:
-    # تنظيف الرابط واستخراج اسم النطاق (Hostname) لأجل فحص الـ SSL
+async def scan_and_stream_url(url: str):
+    """دالة فحص موقع فردي وتجهيز السطر لإرساله فورا عبر البث"""
     clean_url = url.replace("https://", "").replace("http://", "").split('/')[0]
     target_url = url if url.startswith(("http://", "https://")) else f"https://{url}"
     
     result = {
-        "url": url,
-        "alive": False,
-        "status": "CRASHED",
-        "time": "0ms",
-        "security": "UNKNOWN",
-        "ssl_status": "No SSL/Error",
-        "headers_score": "UNSAFE"
+        "url": url, "alive": False, "status": "CRASHED", 
+        "time": "0ms", "security": "UNKNOWN", 
+        "ssl_status": "No SSL/Error", "headers_score": "UNSAFE"
     }
     
     start_time = asyncio.get_event_loop().time()
     try:
-        async with session.get(target_url, timeout=5, ssl=False) as response:
-            end_time = asyncio.get_event_loop().time()
-            latency = int((end_time - start_time) * 1000)
-            
-            result["alive"] = True
-            result["status"] = str(response.status)
-            result["time"] = f"{latency}ms"
-            
-            # 1. فحص الـ Security Headers
-            headers = response.headers
-            has_csp = "Content-Security-Policy" in headers
-            has_xfo = "X-Frame-Options" in headers
-            has_hsts = "Strict-Transport-Security" in headers
-            
-            # تقييم أمن الهيدرز بناءً على الشروط المطلوبة
-            if has_csp and has_xfo and has_hsts:
-                result["headers_score"] = "SECURE"
-            elif has_csp or has_xfo or has_hsts:
-                result["headers_score"] = "WARNING"
-            else:
-                result["headers_score"] = "UNSAFE"
-
-            # محاكاة بسيطة لـ VirusTotal (يمكن ربطها بالـ API لاحقاً)
-            result["security"] = "CLEAN" if response.status < 400 else "SUSPICIOUS"
-
+        async with aiohttp.ClientSession() as session:
+            async with session.get(target_url, timeout=4, ssl=False) as response:
+                latency = int((asyncio.get_event_loop().time() - start_time) * 1000)
+                result.update({
+                    "alive": True, "status": str(response.status), "time": f"{latency}ms"
+                })
+                
+                # مراجعة الـ Security Headers
+                headers = response.headers
+                has_csp = "Content-Security-Policy" in headers
+                has_xfo = "X-Frame-Options" in headers
+                has_hsts = "Strict-Transport-Security" in headers
+                
+                if has_csp and has_xfo and has_hsts: result["headers_score"] = "SECURE"
+                elif has_csp or has_xfo or has_hsts: result["headers_score"] = "WARNING"
+                
+                result["security"] = "CLEAN" if response.status < 400 else "SUSPICIOUS"
     except Exception:
-        pass # سيبقى الموقع بالحالة الافتراضية أنه مغلق
+        pass
 
-    # 2. فحص شهادة الـ SSL (يتم بشكل منفصل لضمان الدقة)
     if result["alive"]:
         days_left = await asyncio.to_thread(get_ssl_expiry_days, clean_url)
-        if days_left == -1:
-            result["ssl_status"] = "No SSL"
-        elif days_left < 0:
-            result["ssl_status"] = "EXPIRED"
-        elif days_left <= 30:
-            result["ssl_status"] = f"EXPIRING ({days_left} Days)"
-        else:
-            result["ssl_status"] = f"VALID ({days_left} Days)"
+        if days_left == -1: result["ssl_status"] = "No SSL"
+        elif days_left < 0: result["ssl_status"] = "EXPIRED"
+        elif days_left <= 30: result["ssl_status"] = f"EXPIRING ({days_left} Days)"
+        else: result["ssl_status"] = f"VALID ({days_left} Days)"
             
-    return result
+    # صياغة السطر البرمجي المخصص لبروتوكول SSE الشهير
+    return f"data: {json.dumps(result)}\n\n"
 
-@app.post("/api/scan")
-async def start_scan(request: ScanRequest):
-    async with aiohttp.ClientSession() as session:
-        tasks = [scan_single_url(session, url) for url in request.urls]
-        results = await asyncio.gather(*tasks)
-        return {"results": results}
+@app.post("/api/scan/stream")
+@limiter.limit("5 per minute") # حماية السيرفر: حد أقصى 5 طلبات فحص شاملة لكل IP في الدقيقة
+async def start_streaming_scan(request: ScanRequest, r: Request):
+    async def event_generator():
+        # تشغيل المهام بالتوازي لضمان السرعة الفائقة واستباق النتائج
+        tasks = [scan_and_stream_url(url) for url in request.urls]
+        for future in asyncio.as_completed(tasks):
+            row_data = await future
+            yield row_data
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
