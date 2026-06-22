@@ -1,24 +1,43 @@
-from fastapi import FastAPI, Request, Response
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from typing import List
+import os
 import asyncio
 import aiohttp
 import ssl
 import socket
 import json
-from datetime import datetime
+from datetime import datetime, timezone
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List
 
-# إعداد نظام الـ Rate Limiting المطور يدوياً
+# إعداد نظام الـ Rate Limiting المطور عبر slowapi
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 limiter = Limiter(key_func=get_remote_address)
-app = FastAPI()
+app = FastAPI(title="NetScan Streaming API")
 app.state.limiter = limiter
 
-# تعريف الحد بشكل ثابت وخارجي لربطه بذاكرة slowapi بشكل صحيح ومنع انهيار الـ ASGI
-scan_limit = limiter.limit("5 per minute")
+# إضافة خريطة الـ CORS العامة بشكل نظيف ومتوافق مع معايير المتصفحات والـ HTTP
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# معالج مخصص ومستقر لإرجاع رد 429 منسق تلقائياً عند تخطي الحد
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
+    return Response(
+        content=json.dumps({"detail": "Rate limit exceeded! 5 scans per minute allowed."}),
+        status_code=429,
+        media_type="application/json",
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
 
 class ScanRequest(BaseModel):
     urls: List[str]
@@ -30,7 +49,9 @@ def get_ssl_expiry_days(hostname: str) -> int:
             with context.wrap_socket(sock, server_hostname=hostname) as ssock:
                 cert = ssock.getpeercert()
                 expire_date = datetime.strptime(cert['notAfter'], "%b %d %H:%M:%S %Y %Z")
-                remaining = expire_date - datetime.utcnow()
+                # استخدام timezone.utc للتوافق الكامل مع Python 3.14+ على Render
+                expire_date = expire_date.replace(tzinfo=timezone.utc)
+                remaining = expire_date - datetime.now(timezone.utc)
                 return remaining.days
     except Exception:
         return -1
@@ -75,7 +96,6 @@ async def scan_and_stream_url(url: str):
             
     return f"data: {json.dumps(result)}\n\n"
 
-# معالجة طلبات الـ OPTIONS المسبقة بنجاح واستقرار عالي
 @app.options("/api/scan/stream")
 async def options_handler(request: Request):
     return Response(
@@ -88,31 +108,16 @@ async def options_handler(request: Request):
         }
     )
 
+# ✅ استخدام الـ Decorator الأصلي لحماية الـ Endpoint بشكل تلقائي ومستقر ومضمون 100%
 @app.post("/api/scan/stream")
+@limiter.limit("5 per minute")
 async def start_streaming_scan(request: ScanRequest, r: Request):
-    # استدعاء فحص الـ Rate Limit باستخدام الكائن المعرف الخارجي المستقر
-    client_ip = get_remote_address(r)
-    is_allowed, left = limiter.hit(scan_limit, client_ip)
-    
-    if not is_allowed:
-        return Response(
-            content=json.dumps({"detail": "Rate limit exceeded! 5 scans per minute allowed."}),
-            status_code=429,
-            media_type="application/json",
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-                "Access-Control-Allow-Headers": "Content-Type, Accept, Authorization"
-            }
-        )
-
     async def event_generator():
         tasks = [scan_and_stream_url(url) for url in request.urls]
         for future in asyncio.as_completed(tasks):
             row_data = await future
             yield row_data
 
-    # إرسال تدفق البيانات بشكل آمن ومستقر
     return StreamingResponse(
         event_generator(), 
         media_type="text/event-stream",
