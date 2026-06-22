@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List
@@ -10,7 +9,7 @@ import socket
 import json
 from datetime import datetime
 
-# استيراد أدوات تحديد معدل الطلبات (Rate Limiting)
+# إعداد نظام الـ Rate Limiting
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -19,14 +18,6 @@ limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 class ScanRequest(BaseModel):
     urls: List[str]
@@ -44,7 +35,6 @@ def get_ssl_expiry_days(hostname: str) -> int:
         return -1
 
 async def scan_and_stream_url(url: str):
-    """دالة فحص موقع فردي وتجهيز السطر لإرساله فورا عبر البث"""
     clean_url = url.replace("https://", "").replace("http://", "").split('/')[0]
     target_url = url if url.startswith(("http://", "https://")) else f"https://{url}"
     
@@ -63,7 +53,6 @@ async def scan_and_stream_url(url: str):
                     "alive": True, "status": str(response.status), "time": f"{latency}ms"
                 })
                 
-                # مراجعة الـ Security Headers
                 headers = response.headers
                 has_csp = "Content-Security-Policy" in headers
                 has_xfo = "X-Frame-Options" in headers
@@ -83,17 +72,40 @@ async def scan_and_stream_url(url: str):
         elif days_left <= 30: result["ssl_status"] = f"EXPIRING ({days_left} Days)"
         else: result["ssl_status"] = f"VALID ({days_left} Days)"
             
-    # صياغة السطر البرمجي المخصص لبروتوكول SSE الشهير
     return f"data: {json.dumps(result)}\n\n"
 
+# معالجة طلبات الـ OPTIONS المسبقة (Pre-flight Requests) يدوياً لمنع الـ Fetch Error نهائياً
+@app.options("/api/scan/stream")
+async def options_handler():
+    return StreamingResponse(
+        status_code=200,
+        content=asyncio.sleep(0),
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Accept, Authorization",
+        }
+    )
+
 @app.post("/api/scan/stream")
-@limiter.limit("5 per minute") # حماية السيرفر: حد أقصى 5 طلبات فحص شاملة لكل IP في الدقيقة
+@limiter.limit("5 per minute")
 async def start_streaming_scan(request: ScanRequest, r: Request):
     async def event_generator():
-        # تشغيل المهام بالتوازي لضمان السرعة الفائقة واستباق النتائج
         tasks = [scan_and_stream_url(url) for url in request.urls]
         for future in asyncio.as_completed(tasks):
             row_data = await future
             yield row_data
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    # حقن هيدرز الـ CORS والـ Streaming يدوياً في قلب الاستجابة لفرضها على المتصفحات
+    return StreamingResponse(
+        event_generator(), 
+        media_type="text/event-stream",
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Accept, Authorization",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
