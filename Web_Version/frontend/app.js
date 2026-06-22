@@ -1,108 +1,83 @@
-async function runScan() {
-    const urlInput = document.getElementById('urlInput').value.trim();
-    const scanBtn = document.getElementById('btnScan'); 
-    const tableBody = document.getElementById('resultsTableBody'); 
-    const counter = document.getElementById('scanCounter'); 
-
-    if (!urlInput) {
-        alert("Please enter at least one URL!");
+function renderTable(results) {
+    const tableBody = document.getElementById('resultsTableBody');
+    if (!tableBody) return;
+    
+    tableBody.innerHTML = '';
+    
+    if (results.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="5" class="px-4 py-12 text-center text-slate-500 text-xs font-mono">No matching records found.</td></tr>`;
         return;
     }
 
-    const urls = urlInput.split('\n').map(u => u.trim()).filter(u => u.length > 0);
+    results.forEach(res => {
+        const row = document.createElement('tr');
+        row.className = "border-b border-slate-900 hover:bg-slate-900/30 transition duration-150";
 
-    // تأمين تفعيل حالة تحميل الزر
-    if (scanBtn) {
-        scanBtn.disabled = true;
-        scanBtn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin"></i> <span>Scanning targets...</span>`;
-    }
+        // 1. عمود الرابط مع ميزة النسخ السريع
+        const tdUrl = document.createElement('td');
+        tdUrl.className = "px-4 py-4 font-medium text-slate-200 tracking-wide max-w-xs truncate font-mono text-xs flex items-center justify-between group/url";
+        tdUrl.innerHTML = `
+            <span class="truncate">${res.url}</span>
+            <button onclick="navigator.clipboard.writeText('${res.url}'); alert('URL copied!');" class="text-slate-600 hover:text-indigo-400 opacity-0 group-hover/url:opacity-100 transition pl-2">
+                <i class="fa-solid fa-copy text-[11px]"></i>
+            </button>
+        `;
+
+        // 2. عمود الحالة العامة
+        const tdStatus = document.createElement('td');
+        tdStatus.className = "px-4 py-4 text-center";
+        if (res.alive) {
+            tdStatus.innerHTML = `<span class="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-md text-xs font-semibold"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>${res.status} ONLINE</span>`;
+        } else {
+            tdStatus.innerHTML = `<span class="inline-flex items-center gap-1 bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2.5 py-1 rounded-md text-xs font-semibold"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>${res.status}</span>`;
+        }
+
+        // 3. عمود زمن الاستجابة (Latency)
+        const tdTime = document.createElement('td');
+        tdTime.className = "px-4 py-4 text-center text-slate-400 font-mono text-xs";
+        tdTime.textContent = res.time;
+
+        // 4. [جديد] عمود حالة شهادة الأمان SSL
+        const tdSSL = document.createElement('td');
+        tdSSL.className = "px-4 py-4 text-center";
+        let sslBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">${res.ssl_status}</span>`;
+        
+        if (res.ssl_status.includes('VALID')) {
+            sslBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">${res.ssl_status}</span>`;
+        } else if (res.ssl_status.includes('EXPIRING')) {
+            sslBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">${res.ssl_status}</span>`;
+        }
+        tdSSL.innerHTML = sslBadge;
+
+        // 5. [جديد] عمود جدران الحماية بالهيدرز (Security Headers)
+        const tdHeaders = document.createElement('td');
+        tdHeaders.className = "px-4 py-4 text-center";
+        let headerBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20"><i class="fa-solid fa-shield text-[10px] mr-1"></i>UNSAFE</span>`;
+        
+        if (res.headers_score === 'SECURE') {
+            headerBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-teal-500/10 text-teal-400 border border-teal-500/20"><i class="fa-solid fa-shield-halved text-[10px] mr-1"></i>SECURE</span>`;
+        } else if (res.headers_score === 'WARNING') {
+            headerBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20"><i class="fa-solid fa-shield text-[10px] mr-1"></i>PARTIAL</span>`;
+        }
+        tdHeaders.innerHTML = headerBadge;
+
+        // دمج الأعمدة بالصف
+        row.appendChild(tdUrl);
+        row.appendChild(tdStatus);
+        row.appendChild(tdTime);
+        row.appendChild(tdSSL);
+        row.appendChild(tdHeaders);
+        
+        tableBody.appendChild(row);
+    });
+}
+
+// دالة تحديث الإحصائيات مع إدراج التنبيهات الأمنية الجديدة
+function updateMetrics(results) {
+    document.getElementById('metricTotal').innerText = results.length;
+    document.getElementById('metricOnline').innerText = results.filter(r => r.alive).length;
     
-    if (tableBody) tableBody.innerHTML = '';
-    
-    // إظهار وإعداد العداد
-    if (counter) {
-        counter.classList.remove('hidden');
-        counter.className = "text-xs text-indigo-400 bg-indigo-950/30 px-3 py-1 rounded-md border border-indigo-500/20";
-        counter.innerText = `Scanning ${urls.length} targets...`;
-    }
-
-    try {
-        const response = await fetch('https://netscan-bids.onrender.com/api/scan', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ urls: urls })
-        });
-
-        if (!response.ok) throw new Error('Server responded with an error');
-
-        const data = await response.json();
-
-        if (tableBody) {
-            tableBody.innerHTML = ''; // تنظيف شاشة الانتظار
-            data.results.forEach(res => {
-                const row = document.createElement('tr');
-                row.className = "border-b border-slate-900 hover:bg-slate-900/30 transition duration-150";
-
-                const tdUrl = document.createElement('td');
-                tdUrl.className = "px-4 py-4 font-medium text-slate-200 tracking-wide max-w-xs truncate font-mono text-xs";
-                tdUrl.textContent = res.url;
-
-                const tdStatus = document.createElement('td');
-                tdStatus.className = "px-4 py-4 text-center";
-                if (res.alive) {
-                    tdStatus.innerHTML = `<span class="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-md text-xs font-semibold"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>${res.status} ONLINE</span>`;
-                } else {
-                    tdStatus.innerHTML = `<span class="inline-flex items-center gap-1 bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2.5 py-1 rounded-md text-xs font-semibold"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>${res.status}</span>`;
-                }
-
-                const tdTime = document.createElement('td');
-                tdTime.className = "px-4 py-4 text-center text-slate-400 font-mono text-xs";
-                tdTime.textContent = res.time;
-
-                const tdSecurity = document.createElement('td');
-                tdSecurity.className = "px-4 py-4 text-center";
-                
-                const badgeSecurity = document.createElement('span');
-                let securityBadgeClass = "px-2.5 py-1 rounded-md text-xs font-semibold text-slate-400 bg-slate-800/40";
-                
-                if (res.security.includes('CLEAN')) securityBadgeClass = "px-2.5 py-1 rounded-md text-xs font-semibold text-teal-400 bg-teal-500/10 border border-teal-500/20";
-                if (res.security.includes('SUSPICIOUS')) securityBadgeClass = "px-2.5 py-1 rounded-md text-xs font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20";
-                
-                badgeSecurity.className = securityBadgeClass;
-                badgeSecurity.textContent = res.security;
-                tdSecurity.appendChild(badgeSecurity);
-
-                row.appendChild(tdUrl);
-                row.appendChild(tdStatus);
-                row.appendChild(tdTime);
-                row.appendChild(tdSecurity);
-                
-                tableBody.appendChild(row);
-            });
-        }
-
-        if (counter) {
-            counter.innerText = `Scan completed for ${urls.length} targets.`;
-            counter.className = "text-xs text-emerald-400 bg-emerald-950/30 px-3 py-1 rounded-md border border-emerald-500/20";
-        }
-
-    } catch (error) {
-        console.error(error);
-        if (tableBody) {
-            tableBody.innerHTML = `
-                <tr>
-                    <td colspan="4" class="px-4 py-12 text-center text-rose-400 font-medium text-sm">
-                        <i class="fa-solid fa-circle-exclamation text-xl mb-2 block animate-bounce"></i>
-                        API connection wake-up in progress. If this is the first scan, the free cloud tier takes up to 50 seconds to spin up. Please try again in a moment!
-                    </td>
-                </tr>
-            `;
-        }
-        if (counter) counter.classList.add('hidden');
-    } finally {
-        if (scanBtn) {
-            scanBtn.disabled = false;
-            scanBtn.innerHTML = `<i class="fa-solid fa-bolt"></i> <span>Launch Concurrent Scan</span>`;
-        }
-    }
+    // احتساب التنبيهات إذا كانت الشهادة قاربت على الانتهاء أو الهيدرز غير آمنة
+    const unsafeCount = results.filter(r => r.ssl_status.includes('EXPIRING') || r.ssl_status.includes('EXPIRED') || r.headers_score === 'UNSAFE').length;
+    document.getElementById('metricAlerts').innerText = unsafeCount;
 }
