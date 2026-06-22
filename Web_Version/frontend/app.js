@@ -1,8 +1,6 @@
-// مصفوفة عامة لتخزين النتائج الحالية لتسهيل عمليات الفرز والتصدير والترتيب والـ LocalStorage
 let currentScanResults = [];
 let isAscendingSort = true;
 
-// استدعاء البيانات المخزنة محلياً عند تشغيل الصفحة لأول مرة لحفظ جلسة العمل
 document.addEventListener("DOMContentLoaded", () => {
     const cachedResults = localStorage.getItem("netscan_last_scan");
     if (cachedResults) {
@@ -14,7 +12,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-// الدالة الأساسية لإجراء الفحص المتزامن باستخدام تقنية SSE للمؤشر اللحظي
 async function runScan() {
     const urlInput = document.getElementById('urlInput').value.trim();
     const scanBtn = document.getElementById('btnScan'); 
@@ -27,16 +24,13 @@ async function runScan() {
         return;
     }
 
-    // تنظيف المدخلات وتحويلها إلى مصفوفة
     const urls = urlInput.split('\n').map(u => u.trim()).filter(u => u.length > 0);
 
-    // تعطيل الزر وتغيير حالته حركياً
     if (scanBtn) {
         scanBtn.disabled = true;
         scanBtn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin"></i> <span>Streaming Live Scan...</span>`;
     }
     
-    // تصفير المصفوفة المحلية وتجهيز الجدول لاستقبال البيانات الحية
     currentScanResults = [];
     if (tableBody) {
         tableBody.innerHTML = `
@@ -56,26 +50,25 @@ async function runScan() {
     }
 
     try {
-        // إرسال الطلب إلى السيرفر المطور الذي يدعم الـ Streaming (SSE)
         const response = await fetch('https://netscan-bids.onrender.com/api/scan/stream', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'text/event-stream'
+            },
             body: JSON.stringify({ urls: urls })
         });
 
-        // التعامل مع نظام تحديد معدل الطلبات (Rate Limiting) في حال تجاوزه
         if (response.status === 429) {
-            throw new Error("Rate limit exceeded! Please slow down and try again later.");
+            throw new Error("Rate limit exceeded! 5 scans per minute allowed.");
         }
 
-        if (!response.ok) throw new Error('Server responded with an error');
+        if (!response.ok) throw new Error(`Server error: status ${response.status}`);
 
-        // قراءة الاستجابة كـ Stream (سطر بسطر) عبر العميل
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
         let buffer = "";
 
-        // تنظيف الجدول قبل بدء إسقاط البيانات الحية
         if (tableBody) tableBody.innerHTML = "";
 
         while (true) {
@@ -84,8 +77,6 @@ async function runScan() {
 
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split("\n");
-            
-            // الاحتفاظ بآخر سطر غير مكتمل في البافر
             buffer = lines.pop(); 
 
             for (const line of lines) {
@@ -95,8 +86,6 @@ async function runScan() {
 
                     try {
                         const singleResult = JSON.parse(rawData);
-                        
-                        // إضافة النتيجة المنفردة فور وصولها للمصفوفة وتحديث الواجهة
                         currentScanResults.push(singleResult);
                         appendRowToTable(singleResult);
                         updateMetrics(currentScanResults);
@@ -105,29 +94,28 @@ async function runScan() {
                             counter.innerText = `${currentScanResults.length} / ${urls.length} Targets Processed`;
                         }
                     } catch (e) {
-                        console.error("Error parsing streaming line:", e);
+                        console.error("Chunk parse skip");
                     }
                 }
             }
         }
 
-        // حفظ البيانات النهائية في الذاكرة المحلية وتفعيل أدوات التحكم
         localStorage.setItem("netscan_last_scan", JSON.stringify(currentScanResults));
         if (controls) controls.classList.remove('hidden');
 
         if (counter) {
-            counter.innerText = `Scan completed successfully! Total: ${urls.length}`;
+            counter.innerText = `Scan completed successfully!`;
             counter.className = "text-xs text-emerald-400 bg-emerald-950/30 px-3 py-1 rounded-md border border-emerald-500/20";
         }
 
     } catch (error) {
         console.error(error);
-        if (tableBody && currentScanResults.length === 0) {
+        if (tableBody) {
             tableBody.innerHTML = `
                 <tr>
                     <td colspan="5" class="px-4 py-12 text-center text-rose-400 font-medium text-sm">
-                        <i class="fa-solid fa-circle-exclamation text-xl mb-2 block animate-bounce"></i>
-                        ${error.message || "API Connection Error. Please try again in a moment!"}
+                        <i class="fa-solid fa-circle-exclamation text-xl mb-2 block"></i>
+                        ${error.message || "Connection Error. Please try again!"}
                     </td>
                 </tr>
             `;
@@ -141,19 +129,15 @@ async function runScan() {
     }
 }
 
-// دالة ذكية لإضافة صف فرعي للجدول مباشرة أثناء الـ Streaming دون إعادة بناء الجدول بالكامل
 function appendRowToTable(res) {
     const tableBody = document.getElementById('resultsTableBody');
     if (!tableBody) return;
 
     const row = document.createElement('tr');
     row.className = "border-b border-slate-900 hover:bg-slate-900/30 transition duration-150 data-row";
-    
-    // ربط حالة الفرز برؤية العنصر (سهولة التصفية لاحقاً)
     row.setAttribute('data-alive', res.alive);
     row.setAttribute('data-suspicious', res.security.includes('SUSPICIOUS') || res.ssl_status.includes('EXPIRING') || res.headers_score === 'UNSAFE');
 
-    // 1. عمود الرابط والنسخ السريع
     const tdUrl = document.createElement('td');
     tdUrl.className = "px-4 py-4 font-medium text-slate-200 tracking-wide max-w-xs truncate font-mono text-xs flex items-center justify-between group/url";
     tdUrl.innerHTML = `
@@ -163,7 +147,6 @@ function appendRowToTable(res) {
         </button>
     `;
 
-    // 2. عمود الحالة
     const tdStatus = document.createElement('td');
     tdStatus.className = "px-4 py-4 text-center";
     if (res.alive) {
@@ -172,12 +155,10 @@ function appendRowToTable(res) {
         tdStatus.innerHTML = `<span class="inline-flex items-center gap-1 bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2.5 py-1 rounded-md text-xs font-semibold"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>${res.status}</span>`;
     }
 
-    // 3. عمود زمن الاستجابة (Latency)
     const tdTime = document.createElement('td');
     tdTime.className = "px-4 py-4 text-center text-slate-400 font-mono text-xs";
     tdTime.textContent = res.time;
 
-    // 4. عمود شهادة الأمان SSL
     const tdSSL = document.createElement('td');
     tdSSL.className = "px-4 py-4 text-center";
     let sslBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">${res.ssl_status}</span>`;
@@ -188,7 +169,6 @@ function appendRowToTable(res) {
     }
     tdSSL.innerHTML = sslBadge;
 
-    // 5. عمود جدران الحماية بالهيدرز (Security Headers)
     const tdHeaders = document.createElement('td');
     tdHeaders.className = "px-4 py-4 text-center";
     let headerBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20"><i class="fa-solid fa-shield text-[10px] mr-1"></i>UNSAFE</span>`;
@@ -208,7 +188,6 @@ function appendRowToTable(res) {
     tableBody.appendChild(row);
 }
 
-// دالة إعادة رندرة الجدول بالكامل (للفرز والترتيب وجلسات الحفظ الكلية)
 function renderTable(results) {
     const tableBody = document.getElementById('resultsTableBody');
     if (!tableBody) return;
@@ -220,7 +199,6 @@ function renderTable(results) {
     results.forEach(res => appendRowToTable(res));
 }
 
-// تحديث لوحة البيانات الإحصائية الرقمية (Metrics Counter)
 function updateMetrics(results) {
     document.getElementById('metricTotal').innerText = results.length;
     document.getElementById('metricOnline').innerText = results.filter(r => r.alive).length;
@@ -228,7 +206,6 @@ function updateMetrics(results) {
     document.getElementById('metricAlerts').innerText = unsafeCount;
 }
 
-// تصفية وفرز البيانات حسب الخيار المحدد (Show All / Online / Alerts) دون كسر الأزرار
 function filterResults() {
     const filterValue = document.getElementById('filterSelect').value;
     let filtered = [...currentScanResults];
@@ -242,7 +219,6 @@ function filterResults() {
     renderTable(filtered);
 }
 
-// ترتيب عرض الجدول تصاعدياً وتنازلياً حسب الـ Latency (وقت الاستجابة)
 function toggleSortLatency() {
     isAscendingSort = !isAscendingSort;
     const sorted = [...currentScanResults].sort((a, b) => {
@@ -253,7 +229,6 @@ function toggleSortLatency() {
     renderTable(sorted);
 }
 
-// تصدير نتائج فحص النظام الحالية إلى ملف CSV وتنزيله فوراً
 function exportToCSV() {
     if (currentScanResults.length === 0) {
         alert("No data available to export!");
@@ -272,7 +247,6 @@ function exportToCSV() {
     document.body.removeChild(link);
 }
 
-// دالة التحكم في القائمة الجانبية للنظام
 function toggleAbout(show) {
     const sidebar = document.getElementById('aboutSidebar');
     const overlay = document.getElementById('overlay');

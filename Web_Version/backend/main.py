@@ -9,7 +9,7 @@ import socket
 import json
 from datetime import datetime
 
-# إعداد نظام الـ Rate Limiting
+# إعداد نظام الـ Rate Limiting (محدد معدل الطلبات)
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -74,16 +74,17 @@ async def scan_and_stream_url(url: str):
             
     return f"data: {json.dumps(result)}\n\n"
 
-# معالجة طلبات الـ OPTIONS المسبقة (Pre-flight Requests) يدوياً لمنع الـ Fetch Error نهائياً
+# معالجة طلبات الـ OPTIONS المسبقة يدوياً وتأمين قبولها من أي متصفح (Brave / Kiwi / Chrome)
 @app.options("/api/scan/stream")
-async def options_handler():
+async def options_handler(request: Request):
     return StreamingResponse(
-        status_code=200,
         content=asyncio.sleep(0),
+        status_code=200,
         headers={
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
             "Access-Control-Allow-Headers": "Content-Type, Accept, Authorization",
+            "Access-Control-Max-Age": "86400"
         }
     )
 
@@ -96,7 +97,7 @@ async def start_streaming_scan(request: ScanRequest, r: Request):
             row_data = await future
             yield row_data
 
-    # حقن هيدرز الـ CORS والـ Streaming يدوياً في قلب الاستجابة لفرضها على المتصفحات
+    # حقن هيدرز الـ CORS والـ Streaming في قلب الاستجابة مباشرة لمنع سقوطها
     return StreamingResponse(
         event_generator(), 
         media_type="text/event-stream",
