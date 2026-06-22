@@ -49,7 +49,6 @@ def get_ssl_expiry_days(hostname: str) -> int:
             with context.wrap_socket(sock, server_hostname=hostname) as ssock:
                 cert = ssock.getpeercert()
                 expire_date = datetime.strptime(cert['notAfter'], "%b %d %H:%M:%S %Y %Z")
-                # استخدام timezone.utc للتوافق الكامل مع Python 3.14+ على Render
                 expire_date = expire_date.replace(tzinfo=timezone.utc)
                 remaining = expire_date - datetime.now(timezone.utc)
                 return remaining.days
@@ -108,12 +107,12 @@ async def options_handler(request: Request):
         }
     )
 
-# ✅ استخدام الـ Decorator الأصلي لحماية الـ Endpoint بشكل تلقائي ومستقر ومضمون 100%
+# ✅ تم التعديل هنا: استخدام payload للبيانات و request لـ slowapi لمنع الانهيار
 @app.post("/api/scan/stream")
 @limiter.limit("5 per minute")
-async def start_streaming_scan(request: ScanRequest, r: Request):
+async def start_streaming_scan(payload: ScanRequest, request: Request):
     async def event_generator():
-        tasks = [scan_and_stream_url(url) for url in request.urls]
+        tasks = [scan_and_stream_url(url) for url in payload.urls]
         for future in asyncio.as_completed(tasks):
             row_data = await future
             yield row_data
