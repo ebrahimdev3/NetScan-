@@ -2,3 +2,5 @@ fastapi
 uvicorn
 aiohttp
 gunicorn
+slowapi
+limits
