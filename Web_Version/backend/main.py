@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List
@@ -9,15 +9,13 @@ import socket
 import json
 from datetime import datetime
 
-# إعداد نظام الـ Rate Limiting (محدد معدل الطلبات)
-from slowapi import Limiter, _rate_limit_exceeded_handler
+# إعداد نظام الـ Rate Limiting
+from slowapi import Limiter
 from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
 
 limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 class ScanRequest(BaseModel):
     urls: List[str]
@@ -74,11 +72,10 @@ async def scan_and_stream_url(url: str):
             
     return f"data: {json.dumps(result)}\n\n"
 
-# معالجة طلبات الـ OPTIONS المسبقة يدوياً وتأمين قبولها من أي متصفح (Brave / Kiwi / Chrome)
+# معالجة طلبات الـ OPTIONS المسبقة بنجاح واستقرار
 @app.options("/api/scan/stream")
 async def options_handler(request: Request):
-    return StreamingResponse(
-        content=asyncio.sleep(0),
+    return Response(
         status_code=200,
         headers={
             "Access-Control-Allow-Origin": "*",
@@ -89,15 +86,25 @@ async def options_handler(request: Request):
     )
 
 @app.post("/api/scan/stream")
-@limiter.limit("5 per minute")
 async def start_streaming_scan(request: ScanRequest, r: Request):
+    # 1. فحص الـ Rate Limit يدوياً وبشكل معزول لحماية الـ ASGI من الانهيار
+    client_ip = get_remote_address(r)
+    is_allowed, left = limiter.hit(limiter.limit("5 per minute"), client_ip)
+    if not is_allowed:
+        return Response(
+            content=json.dumps({"detail": "Rate limit exceeded! 5 scans per minute allowed."}),
+            status_code=429,
+            media_type="application/json",
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
+
     async def event_generator():
         tasks = [scan_and_stream_url(url) for url in request.urls]
         for future in asyncio.as_completed(tasks):
             row_data = await future
             yield row_data
 
-    # حقن هيدرز الـ CORS والـ Streaming في قلب الاستجابة مباشرة لمنع سقوطها
+    # 2. إرجاع البث الحي بحماية CORS يدوية مطلقة ومستقرة
     return StreamingResponse(
         event_generator(), 
         media_type="text/event-stream",
