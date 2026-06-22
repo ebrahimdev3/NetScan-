@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Response, HTTPException
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List
@@ -9,13 +9,16 @@ import socket
 import json
 from datetime import datetime
 
-# إعداد نظام الـ Rate Limiting
+# إعداد نظام الـ Rate Limiting المطور يدوياً
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
 app.state.limiter = limiter
+
+# تعريف الحد بشكل ثابت وخارجي لربطه بذاكرة slowapi بشكل صحيح ومنع انهيار الـ ASGI
+scan_limit = limiter.limit("5 per minute")
 
 class ScanRequest(BaseModel):
     urls: List[str]
@@ -72,7 +75,7 @@ async def scan_and_stream_url(url: str):
             
     return f"data: {json.dumps(result)}\n\n"
 
-# معالجة طلبات الـ OPTIONS المسبقة بنجاح واستقرار
+# معالجة طلبات الـ OPTIONS المسبقة بنجاح واستقرار عالي
 @app.options("/api/scan/stream")
 async def options_handler(request: Request):
     return Response(
@@ -87,15 +90,20 @@ async def options_handler(request: Request):
 
 @app.post("/api/scan/stream")
 async def start_streaming_scan(request: ScanRequest, r: Request):
-    # 1. فحص الـ Rate Limit يدوياً وبشكل معزول لحماية الـ ASGI من الانهيار
+    # استدعاء فحص الـ Rate Limit باستخدام الكائن المعرف الخارجي المستقر
     client_ip = get_remote_address(r)
-    is_allowed, left = limiter.hit(limiter.limit("5 per minute"), client_ip)
+    is_allowed, left = limiter.hit(scan_limit, client_ip)
+    
     if not is_allowed:
         return Response(
             content=json.dumps({"detail": "Rate limit exceeded! 5 scans per minute allowed."}),
             status_code=429,
             media_type="application/json",
-            headers={"Access-Control-Allow-Origin": "*"}
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, Accept, Authorization"
+            }
         )
 
     async def event_generator():
@@ -104,7 +112,7 @@ async def start_streaming_scan(request: ScanRequest, r: Request):
             row_data = await future
             yield row_data
 
-    # 2. إرجاع البث الحي بحماية CORS يدوية مطلقة ومستقرة
+    # إرسال تدفق البيانات بشكل آمن ومستقر
     return StreamingResponse(
         event_generator(), 
         media_type="text/event-stream",
